@@ -55,8 +55,9 @@ public class Main {
     }
 
     private static boolean esDirectiva(String cadena){
+        cadena = cadena.toLowerCase();
         for (String directiva : directivas)
-            if (cadena.toLowerCase() == directiva)
+            if (cadena.equals(directiva))
                 return true;
         return false;
     }
@@ -67,15 +68,17 @@ public class Main {
             Scanner lector = new Scanner(archivoSetInstrucciones);
             boolean estaPegadoAlMargen;
             String linea, lineaSinComentarios, mnemonico, operando, lineaCompilada, hexadecimal = "";
-            int numLineaActual, contador = 0, bytesAOcupar, direccionActualH = 0;
+            int numLineaActual, contador = 0, bytesAOcupar, direccionActualH = 0, auxPosAsterisco;
             do {
                 numLineaActual = ++contador;
                 linea = lector.nextLine();
-                if (linea.isBlank()) {
-                    System.out.println("\t\t\t\t:" + linea);
+                System.out.println("START" + linea + "END");
+                auxPosAsterisco = linea.indexOf("*");
+                lineaSinComentarios = auxPosAsterisco != -1 ? linea.toLowerCase().substring(0, auxPosAsterisco) : linea;
+                if (lineaSinComentarios.isBlank()) {
+                    System.out.println((numLineaActual++) + "\t\t\t:" + linea);
                     continue;
                 }
-                lineaSinComentarios = linea.toLowerCase().substring(0, linea.indexOf("*"));
                 estaPegadoAlMargen = false; // TODO: saber si está pegada al margen para saber si es una instrucción o es una etiqueta
                 if (estaPegadoAlMargen){
                     // Es una etiqueta
@@ -83,16 +86,18 @@ public class Main {
                 }
                 else {
                     lineaSinComentarios = lineaSinComentarios.trim();
+                    System.out.println("SINCOMENT_START" + lineaSinComentarios + "END");
                     int primerEspacio = lineaSinComentarios.indexOf(" ");
                     if (primerEspacio == -1) {
                         primerEspacio = lineaSinComentarios.length();
                     }
-                    mnemonico = linea.substring(0, primerEspacio);
+                    mnemonico = lineaSinComentarios.substring(0, primerEspacio);
                     if(primerEspacio == lineaSinComentarios.length())
                         operando = "";
                     else
-                        operando = linea.substring(primerEspacio + 1);
+                        operando = lineaSinComentarios.substring(primerEspacio + 1);
                     if (esDirectiva(mnemonico)) {
+                        System.out.println("Directiva:" + mnemonico);
                         // TODO: Manejar cuando sea directiva
                         switch (mnemonico) {
                             case "org":
@@ -106,6 +111,7 @@ public class Main {
                     else {
                         // Es una instrucción
                         // TODO: quitar el espacio entre la instrucción y el margen
+                        System.out.println("Mnemonico:" + mnemonico);
                         Instruccion instruccion = setInstrucciones.get(mnemonico);
                         if (instruccion.codigos.containsKey(Instruccion.TipoInstruccion.INH)
                                 || instruccion.codigos.containsKey(Instruccion.TipoInstruccion.REL)) {
@@ -120,8 +126,8 @@ public class Main {
                         else {
 
                         }
-                        System.out.println(numLineaActual + ": " + direccionActualH + "(" + hexadecimal + ")");
                     }
+                    System.out.println(numLineaActual++ + ": " + Integer.toHexString(direccionActualH) + "(" + hexadecimal + ")\t\t:" + linea);
                     direccionActualH++;
                 }
             } while (lector.hasNextLine());
@@ -133,7 +139,7 @@ public class Main {
 
     public static void main(String[] args) {
         cargarSetInstrucciones();
-        compilarArchivo("prueba.s19");
+        compilarArchivo("prueba.asc");
         
     }
 }

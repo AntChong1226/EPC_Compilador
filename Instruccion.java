@@ -14,7 +14,7 @@ public class Instruccion {
         REL
     }
 
-    public static LinkedHashMap<TipoInstruccion, Tipo> tipos;
+    public static LinkedHashMap<TipoInstruccion, Tipo> tipos = new LinkedHashMap<>();
     static {
         tipos.put(TipoInstruccion.INM, new Tipo(TipoInstruccion.INM, false, true));
         tipos.put(TipoInstruccion.DIR, new Tipo(TipoInstruccion.DIR, false, false));

@@ -1,7 +1,7 @@
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.lang.reflect.Array;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -10,6 +10,8 @@ import java.util.Scanner;
 public class Main {
     private static LinkedHashMap<String, Instruccion> setInstrucciones = new LinkedHashMap<>();
     private static List<String> directivas = Arrays.asList("org", "equ", "fcb", "end");
+    private static HashMap<String, Integer> etiquetas = new HashMap<>();
+    
     private static void cargarSetInstrucciones() {
         try {
             File archivoSetInstrucciones = new File("setInstrucciones.txt");
@@ -63,26 +65,41 @@ public class Main {
     }
 
     public static void compilarArchivo(String rutaArchivo){
+        etiquetas = new HashMap<>();
+        LinkedList<Linea> lineas = new LinkedList<>();
         try {
             File archivoSetInstrucciones = new File(rutaArchivo);
             Scanner lector = new Scanner(archivoSetInstrucciones);
-            boolean estaPegadoAlMargen;
-            String linea, lineaSinComentarios, mnemonico, operando, lineaCompilada, hexadecimal = "";
-            int numLineaActual, contador = 0, bytesAOcupar, direccionActualH = 0, auxPosAsterisco;
+            boolean estaPegadoAlMargen, finDelPrograma = false, hacerSegundaVuelta = false;
+            String lineaSinComentarios, mnemonico, hexadecimal = "";
+            int contador = 0, bytesAOcupar, direccionActualH = 0, auxPosAsterisco;
+            Linea lineaDetalle = new Linea();
             do {
-                numLineaActual = ++contador;
-                linea = lector.nextLine();
-                System.out.println("START" + linea + "END");
-                auxPosAsterisco = linea.indexOf("*");
-                lineaSinComentarios = auxPosAsterisco != -1 ? linea.toLowerCase().substring(0, auxPosAsterisco) : linea;
+                lineaDetalle = new Linea();
+                lineaDetalle.numLinea = ++contador;
+                lineaDetalle.lineaOriginal = lector.nextLine();
+                System.out.println("START" + lineaDetalle.lineaOriginal + "END");
+                auxPosAsterisco = lineaDetalle.lineaOriginal.indexOf("*");
+                lineaSinComentarios = lineaDetalle.lineaOriginal.toLowerCase();
+                lineaSinComentarios = auxPosAsterisco != -1 ? lineaSinComentarios.substring(0, auxPosAsterisco) : lineaSinComentarios;
                 if (lineaSinComentarios.isBlank()) {
-                    System.out.println((numLineaActual++) + "\t\t\t:" + linea);
+                    //System.out.println((lineaDetalle.numLinea) + "\t\t\t:" + lineaDetalle.lineaOriginal);
+                    lineas.add(lineaDetalle);
                     continue;
                 }
-                estaPegadoAlMargen = false; // TODO: saber si está pegada al margen para saber si es una instrucción o es una etiqueta
+                estaPegadoAlMargen = !lineaSinComentarios.substring(0, 1).isBlank(); // TODO: saber si está pegada al margen para saber si es una instrucción o es una etiqueta
                 if (estaPegadoAlMargen){
                     // Es una etiqueta
                     // TODO: Reconocer etiquetas y guardar su dirección
+                    lineaSinComentarios = lineaSinComentarios.trim();
+                    if(lineaSinComentarios.matches("\s")){
+                        throw new Error("Una etiqueta no puede tener espacios.");
+                    }
+                    etiquetas.put(lineaSinComentarios, direccionActualH);
+                    hacerSegundaVuelta = true;
+                    System.out.println((lineaDetalle.numLinea) + "\t\t\t:" + lineaDetalle.lineaOriginal);
+                    System.out.println("ETQIEUTAS:" + etiquetas.toString());
+                    continue;
                 }
                 else {
                     lineaSinComentarios = lineaSinComentarios.trim();
@@ -93,18 +110,32 @@ public class Main {
                     }
                     mnemonico = lineaSinComentarios.substring(0, primerEspacio);
                     if(primerEspacio == lineaSinComentarios.length())
-                        operando = "";
+                        lineaDetalle.operando = "";
                     else
-                        operando = lineaSinComentarios.substring(primerEspacio + 1);
+                        lineaDetalle.operando = lineaSinComentarios.substring(primerEspacio + 1);
                     if (esDirectiva(mnemonico)) {
                         System.out.println("Directiva:" + mnemonico);
                         // TODO: Manejar cuando sea directiva
                         switch (mnemonico) {
                             case "org":
-                                direccionActualH = Integer.parseInt(operando, 16);
+                                direccionActualH = Integer.parseInt(lineaDetalle.operando, 16);
                                 break;
                         
+                            case "equ":
+                                // TODO: PENDIENTE EQU
+                            break;
+                    
+                            case "fcb":
+                                // TODO: PENDIENTE FCB
+                            break;
+                    
+                            case "end":
+                                finDelPrograma = true;
+                            break;
+                        
                             default:
+                                lector.close();
+                                // TODO: Cerrar archivo de escritura
                                 break;
                         }
                     }
@@ -113,11 +144,13 @@ public class Main {
                         // TODO: quitar el espacio entre la instrucción y el margen
                         System.out.println("Mnemonico:" + mnemonico);
                         Instruccion instruccion = setInstrucciones.get(mnemonico);
+                        System.out.println("TIPOS:" + instruccion.codigos.toString());
                         if (instruccion.codigos.containsKey(Instruccion.TipoInstruccion.INH)
                                 || instruccion.codigos.containsKey(Instruccion.TipoInstruccion.REL)) {
                             // Estos tipos no comparte mnemónico con los demás
-                            if (operando != "") {
+                            if (lineaDetalle.operando != "") {
                                 // Es REL
+                                hacerSegundaVuelta = true;
                             }
                             else {
                                 // Es INH
@@ -127,11 +160,16 @@ public class Main {
 
                         }
                     }
-                    System.out.println(numLineaActual++ + ": " + Integer.toHexString(direccionActualH) + "(" + hexadecimal + ")\t\t:" + linea);
-                    direccionActualH++;
+                    lineaDetalle.direccion = direccionActualH++;
+                    lineas.add(lineaDetalle);
                 }
-            } while (lector.hasNextLine());
+                // TODO: hacer segunda vuelta
+            } while (lector.hasNextLine() && !finDelPrograma);
             lector.close();
+            for (Linea linea : lineas) {
+                System.out.println(linea);
+            }
+            System.out.println("ETQIEUTAS:" + etiquetas.toString());
           } catch (FileNotFoundException e) {
             e.printStackTrace();
           }
@@ -140,6 +178,5 @@ public class Main {
     public static void main(String[] args) {
         cargarSetInstrucciones();
         compilarArchivo("prueba.asc");
-        
     }
 }

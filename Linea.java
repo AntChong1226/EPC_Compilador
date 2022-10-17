@@ -7,7 +7,7 @@ public class Linea {
     public Tarea pendiente = null;
     enum Tarea{
         SUST_ETIQUETA,
-        CALC_DIR
+        CALC_SALTO
     }
 
     public static int hexToDec(String num) {

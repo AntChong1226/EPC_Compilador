@@ -14,39 +14,54 @@ public class Main {
     
     private static void cargarSetInstrucciones() {
         try {
-            File archivoSetInstrucciones = new File("setInstrucciones.txt");
+            File archivoSetInstrucciones = new File("setInstruccionesConBytes.txt");
             Scanner lector = new Scanner(archivoSetInstrucciones);
             do {
                 String linea = lector.nextLine().replaceAll(" |-", "");
                 String[] datos = linea.split(",");
                 Instruccion instruccion = new Instruccion(datos[0]);
+                String codigo, bytes;
                 
                 if(datos.length >= 2 && !datos[1].isEmpty()) {
-                instruccion.codigos.put(Instruccion.TipoInstruccion.INM, datos[1]);
-                }
-                
-                if(datos.length >= 3 && !datos[2].isEmpty()) {
-                instruccion.codigos.put(Instruccion.TipoInstruccion.DIR, datos[2]);
+                    codigo = datos[1];
+                    bytes = datos[2];
+                    instruccion.codigos.put(Instruccion.TipoInstruccion.INM, new TipoInstruccionDetalle(codigo, bytes));
                 }
                 
                 if(datos.length >= 4 && !datos[3].isEmpty()) {
-                instruccion.codigos.put(Instruccion.TipoInstruccion.INDX, datos[3]);
-                }
-                
-                if(datos.length >= 5 && !datos[4].isEmpty()) {
-                instruccion.codigos.put(Instruccion.TipoInstruccion.INDY, datos[4]);
+                    codigo = datos[3];
+                    bytes = datos[4];
+                    instruccion.codigos.put(Instruccion.TipoInstruccion.DIR, new TipoInstruccionDetalle(codigo, bytes));
                 }
                 
                 if(datos.length >= 6 && !datos[5].isEmpty()) {
-                instruccion.codigos.put(Instruccion.TipoInstruccion.EXT, datos[5]);
-                }
-                
-                if(datos.length >= 7 && !datos[6].isEmpty()) {
-                instruccion.codigos.put(Instruccion.TipoInstruccion.INH, datos[6]);
+                    codigo = datos[5];
+                    bytes = datos[6];
+                    instruccion.codigos.put(Instruccion.TipoInstruccion.INDX, new TipoInstruccionDetalle(codigo, bytes));
                 }
                 
                 if(datos.length >= 8 && !datos[7].isEmpty()) {
-                instruccion.codigos.put(Instruccion.TipoInstruccion.REL, datos[7]);
+                    codigo = datos[7];
+                    bytes = datos[8];
+                    instruccion.codigos.put(Instruccion.TipoInstruccion.INDY, new TipoInstruccionDetalle(codigo, bytes));
+                }
+                
+                if(datos.length >= 10 && !datos[9].isEmpty()) {
+                    codigo = datos[9];
+                    bytes = datos[10];
+                    instruccion.codigos.put(Instruccion.TipoInstruccion.EXT, new TipoInstruccionDetalle(codigo, bytes));
+                }
+                
+                if(datos.length >= 12 && !datos[11].isEmpty()) {
+                    codigo = datos[11];
+                    bytes = datos[12];
+                    instruccion.codigos.put(Instruccion.TipoInstruccion.INH, new TipoInstruccionDetalle(codigo, bytes));
+                }
+                
+                if(datos.length >= 14 && !datos[13].isEmpty()) {
+                    codigo = datos[13];
+                    bytes = datos[14];
+                    instruccion.codigos.put(Instruccion.TipoInstruccion.REL, new TipoInstruccionDetalle(codigo, bytes));
                 }
                 setInstrucciones.put(datos[0], instruccion);
             } while (lector.hasNextLine());
@@ -151,13 +166,30 @@ public class Main {
                             if (lineaDetalle.operando != "") {
                                 // Es REL
                                 hacerSegundaVuelta = true;
+                                lineaDetalle.pendiente = Linea.Tarea.CALC_SALTO;
                             }
                             else {
                                 // Es INH
                             }
                         }
                         else {
-
+                            String[] operandos = lineaDetalle.operando.split(",");
+                            for (int i = 0; i < operandos.length; i++) {
+                                operandos[i] = operandos[i].trim();
+                            }
+                            boolean espacioUltimaParte = operandos[operandos.length - 1].contains(" ");
+                            LinkedList<String> operandosLista = new LinkedList<>();
+                            for (String operando : operandos) {
+                                operandosLista.add(operando);
+                            }
+                            if (espacioUltimaParte) {
+                                String ultimo = operandosLista.removeLast();
+                                String[] partesUltimo = ultimo.split(" ");
+                                operandosLista.add(partesUltimo[0].trim());
+                                operandosLista.add(partesUltimo[1].trim());
+                            }
+                            int numOperandos = operandosLista.size();
+                            // TODO: Saber a qué modo se refiere con los operandos recibidos
                         }
                     }
                     lineaDetalle.direccion = direccionActualH++;

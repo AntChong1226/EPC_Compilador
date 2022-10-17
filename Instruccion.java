@@ -1,7 +1,4 @@
-import java.util.Arrays;
 import java.util.LinkedHashMap;
-import java.util.LinkedList;
-import java.util.List;
 
 public class Instruccion {
     enum TipoInstruccion {
@@ -27,7 +24,7 @@ public class Instruccion {
 
     public String nmemonico;
 
-    public LinkedHashMap<TipoInstruccion, String> codigos;
+    public LinkedHashMap<TipoInstruccion, TipoInstruccionDetalle> codigos;
     
     public Instruccion(String nmemonico) {
         this.nmemonico = nmemonico;

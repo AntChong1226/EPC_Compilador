@@ -88,7 +88,7 @@ public class Main {
             boolean estaPegadoAlMargen, finDelPrograma = false, hacerSegundaVuelta = false;
             String lineaSinComentarios, mnemonico, hexadecimal = "";
             int contador = 0, bytesAOcupar, direccionActualH = 0, auxPosAsterisco;
-            Linea lineaDetalle = new Linea();
+            Linea lineaDetalle;
             do {
                 lineaDetalle = new Linea();
                 lineaDetalle.numLinea = ++contador;

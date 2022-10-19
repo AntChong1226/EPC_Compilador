@@ -14,6 +14,12 @@ public class Linea {
         return Integer.parseInt(num, 16);
     }
 
+    public static String calcularSalto(int inicio, int fin) {
+        int salto = fin - inicio;
+        String a = Integer.toHexString(salto);
+        return (salto < 0 ? a.substring(a.length()-2) : CompletarCadena(a, 2, '0', true)).toUpperCase();
+    }
+
     public static String CompletarCadena(String cadena, int longitudFinal, char comodin, boolean izquierda){
         for (int i = cadena.length(); i <= longitudFinal; i++) {
             if (izquierda)

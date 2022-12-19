@@ -11,6 +11,7 @@ public class Main {
     private static LinkedHashMap<String, Instruccion> setInstrucciones = new LinkedHashMap<>();
     private static List<String> directivas = Arrays.asList("org", "equ", "fcb", "end");
     private static HashMap<String, Integer> etiquetas = new HashMap<>();
+    private static HashMap<String, Integer> variables = new HashMap<>();
     
     private static void cargarSetInstrucciones() {
         try {
@@ -137,7 +138,8 @@ public class Main {
                                 break;
                         
                             case "equ":
-                                // TODO: PENDIENTE EQU
+                            // TODO: PENDIENTE EQU
+                                variables.put(lineaSinComentarios, direccionActualH);
                             break;
                     
                             case "fcb":
@@ -150,7 +152,6 @@ public class Main {
                         
                             default:
                                 lector.close();
-                                // TODO: Cerrar archivo de escritura
                                 break;
                         }
                     }
@@ -160,6 +161,18 @@ public class Main {
                         System.out.println("Mnemonico:" + mnemonico);
                         Instruccion instruccion = setInstrucciones.get(mnemonico);
                         System.out.println("TIPOS:" + instruccion.codigos.toString());
+                        if(mnemonico.equals("bclr")){
+                            
+                        }
+                        if(mnemonico.equals("bset")){
+                            
+                        }
+                        if(mnemonico.equals("brclr")){
+                            
+                        }
+                        if(mnemonico.equals("brset")){
+                            
+                        }
                         if (instruccion.codigos.containsKey(Instruccion.TipoInstruccion.INH)
                                 || instruccion.codigos.containsKey(Instruccion.TipoInstruccion.REL)) {
                             // Estos tipos no comparte mnemónico con los demás
@@ -196,6 +209,9 @@ public class Main {
                     lineas.add(lineaDetalle);
                 }
                 // TODO: hacer segunda vuelta
+                if(!finDelPrograma){
+                    throw new Error("No se econcotró el fin de programa.s");
+                }
             } while (lector.hasNextLine() && !finDelPrograma);
             lector.close();
             for (Linea linea : lineas) {

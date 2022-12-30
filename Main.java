@@ -1,17 +1,22 @@
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Scanner;
+import java.util.regex.Pattern;
+
+import org.w3c.dom.html.HTMLTableRowElement;
 
 public class Main {
     private static LinkedHashMap<String, Instruccion> setInstrucciones = new LinkedHashMap<>();
     private static List<String> directivas = Arrays.asList("org", "equ", "fcb", "end");
     private static HashMap<String, Integer> etiquetas = new HashMap<>();
-    private static HashMap<String, Integer> variables = new HashMap<>();
+    private static HashMap<String, String> variables = new HashMap<>();
     
     private static void cargarSetInstrucciones() {
         try {
@@ -86,145 +91,428 @@ public class Main {
         try {
             File archivoSetInstrucciones = new File(rutaArchivo);
             Scanner lector = new Scanner(archivoSetInstrucciones);
-            boolean estaPegadoAlMargen, finDelPrograma = false, hacerSegundaVuelta = false;
-            String lineaSinComentarios, mnemonico, hexadecimal = "";
-            int contador = 0, bytesAOcupar, direccionActualH = 0, auxPosAsterisco;
+            boolean estaPegadoAlMargen, finDelPrograma = false, hacerSegundaVuelta = false, aumentarDireccion = true;
+            String lineaSinComentarios, mnemonico;
+            int contador = 0, direccionActualH = 0, auxPosAsterisco;
+            List<String> instruccionesEspeciales = Arrays.asList("bclr", "bset", "brclr", "brset");
             Linea lineaDetalle;
             do {
                 lineaDetalle = new Linea();
                 lineaDetalle.numLinea = ++contador;
                 lineaDetalle.lineaOriginal = lector.nextLine();
-                System.out.println("START" + lineaDetalle.lineaOriginal + "END");
+                //System.out.println("START" + lineaDetalle.lineaOriginal + "END");
                 auxPosAsterisco = lineaDetalle.lineaOriginal.indexOf("*");
                 lineaSinComentarios = lineaDetalle.lineaOriginal.toLowerCase();
                 lineaSinComentarios = auxPosAsterisco != -1 ? lineaSinComentarios.substring(0, auxPosAsterisco) : lineaSinComentarios;
                 if (lineaSinComentarios.isBlank()) {
-                    //System.out.println((lineaDetalle.numLinea) + "\t\t\t:" + lineaDetalle.lineaOriginal);
                     lineas.add(lineaDetalle);
                     continue;
                 }
-                estaPegadoAlMargen = !lineaSinComentarios.substring(0, 1).isBlank(); // TODO: saber si está pegada al margen para saber si es una instrucción o es una etiqueta
+                estaPegadoAlMargen = !lineaSinComentarios.substring(0, 1).isBlank();
                 if (estaPegadoAlMargen){
-                    // Es una etiqueta
-                    // TODO: Reconocer etiquetas y guardar su dirección
                     lineaSinComentarios = lineaSinComentarios.trim();
-                    if(lineaSinComentarios.matches("\s")){
-                        throw new Error("Una etiqueta no puede tener espacios.");
+                    if (lineaSinComentarios.toLowerCase().contains(" equ ")) {
+                        // Es una variable
+                        String nombreVariable = lineaSinComentarios.substring(0, lineaSinComentarios.indexOf(" equ ")).trim().toLowerCase();
+                        String valor = lineaSinComentarios.substring( lineaSinComentarios.toLowerCase().indexOf(" equ ") + 5).trim();
+                        variables.put(nombreVariable, valor);
                     }
-                    etiquetas.put(lineaSinComentarios, direccionActualH);
-                    hacerSegundaVuelta = true;
-                    System.out.println((lineaDetalle.numLinea) + "\t\t\t:" + lineaDetalle.lineaOriginal);
-                    System.out.println("ETQIEUTAS:" + etiquetas.toString());
+                    else if(!lineaSinComentarios.matches("\s")){
+                        // Es una etiqueta
+                        etiquetas.put(lineaSinComentarios, direccionActualH);
+                        hacerSegundaVuelta = true;
+                    }
+                    else {
+                        throw new Error("009 INSTRUCCIÓN CARECE DE ALMENOS UN ESPACIO RELATIVO AL MARGEN");
+                    }
+                    lineas.add(lineaDetalle);
                     continue;
                 }
                 else {
                     lineaSinComentarios = lineaSinComentarios.trim();
-                    System.out.println("SINCOMENT_START" + lineaSinComentarios + "END");
+                    //System.out.println("SINCOMENT_START" + lineaSinComentarios + "END");
                     int primerEspacio = lineaSinComentarios.indexOf(" ");
                     if (primerEspacio == -1) {
                         primerEspacio = lineaSinComentarios.length();
                     }
-                    mnemonico = lineaSinComentarios.substring(0, primerEspacio);
+                    mnemonico = lineaSinComentarios.substring(0, primerEspacio).toLowerCase();
                     if(primerEspacio == lineaSinComentarios.length())
                         lineaDetalle.operando = "";
                     else
-                        lineaDetalle.operando = lineaSinComentarios.substring(primerEspacio + 1);
+                        lineaDetalle.operando = lineaSinComentarios.substring(primerEspacio + 1).trim();
                     if (esDirectiva(mnemonico)) {
-                        System.out.println("Directiva:" + mnemonico);
+                        //System.out.println("Directiva:" + mnemonico);
                         // TODO: Manejar cuando sea directiva
                         switch (mnemonico) {
                             case "org":
                                 direccionActualH = Integer.parseInt(lineaDetalle.operando, 16);
+                                aumentarDireccion = false;
                                 break;
-                        
-                            case "equ":
-                            // TODO: PENDIENTE EQU
-                                variables.put(lineaSinComentarios, direccionActualH);
-                            break;
                     
                             case "fcb":
                                 // TODO: PENDIENTE FCB
                             break;
                     
                             case "end":
+                                aumentarDireccion = false;
                                 finDelPrograma = true;
                             break;
-                        
-                            default:
-                                lector.close();
-                                break;
                         }
+                    }
+                    else if (!setInstrucciones.containsKey(mnemonico)) {
+                        throw new Error("004 MNEMÓNICO INEXISTENTE");
                     }
                     else {
                         // Es una instrucción
-                        // TODO: quitar el espacio entre la instrucción y el margen
-                        System.out.println("Mnemonico:" + mnemonico);
+                        //System.out.println("Mnemonico:" + mnemonico);
                         Instruccion instruccion = setInstrucciones.get(mnemonico);
-                        System.out.println("TIPOS:" + instruccion.codigos.toString());
-                        if(mnemonico.equals("bclr")){
-                            
-                        }
-                        if(mnemonico.equals("bset")){
-                            
-                        }
-                        if(mnemonico.equals("brclr")){
-                            
-                        }
-                        if(mnemonico.equals("brset")){
-                            
-                        }
-                        if (instruccion.codigos.containsKey(Instruccion.TipoInstruccion.INH)
-                                || instruccion.codigos.containsKey(Instruccion.TipoInstruccion.REL)) {
-                            // Estos tipos no comparte mnemónico con los demás
-                            if (lineaDetalle.operando != "") {
-                                // Es REL
-                                hacerSegundaVuelta = true;
-                                lineaDetalle.pendiente = Linea.Tarea.CALC_SALTO;
-                            }
-                            else {
-                                // Es INH
-                            }
+                        //System.out.println("TIPOS:" + instruccion.codigos.toString());
+                        // Rel
+                        if(instruccion.codigos.containsKey(Instruccion.TipoInstruccion.REL)){
+                            hacerSegundaVuelta = true;
+                            lineaDetalle.pendiente = Linea.Tarea.CALC_SALTO;
+                            lineaDetalle.etiqueta = lineaDetalle.operando;
+                            lineaDetalle.hexInst = instruccion.codigos.get(Instruccion.TipoInstruccion.REL).codigo;
                         }
                         else {
-                            String[] operandos = lineaDetalle.operando.split(",");
-                            for (int i = 0; i < operandos.length; i++) {
-                                operandos[i] = operandos[i].trim();
+                            // Inherente
+                            if(instruccion.codigos.containsKey(Instruccion.TipoInstruccion.INH)){
+                                if(lineaDetalle.operando.isEmpty()){
+                                    lineaDetalle.hexInst = instruccion.codigos.get(Instruccion.TipoInstruccion.INH).codigo;
+                                }
+                                else {
+                                    throw new Error("006 INSTRUCCIÓN NO LLEVA OPERANDO(S)");
+                                }
                             }
-                            boolean espacioUltimaParte = operandos[operandos.length - 1].contains(" ");
-                            LinkedList<String> operandosLista = new LinkedList<>();
-                            for (String operando : operandos) {
-                                operandosLista.add(operando);
+                            else{
+                                // Inmediato
+                                if (lineaDetalle.operando.isEmpty())
+                                    throw new Error("005 INSTRUCCIÓN CARECE DE OPERANDOS");
+                                if((lineaDetalle.operando.substring(0,1).contains("#"))
+                                    && instruccion.codigos.containsKey(Instruccion.TipoInstruccion.INM)){
+                                    String op = lineaDetalle.operando.substring(1);
+                                    if (variables.containsKey(op)) {
+                                        op = variables.get(op);
+                                    }
+                                    lineaDetalle.hexInst = instruccion.codigos.get(Instruccion.TipoInstruccion.INM).codigo;
+                                    if(op.startsWith("$")){
+                                        lineaDetalle.hexOp = op.substring(1);   
+                                    }
+                                    else if(op.startsWith("'")){
+                                            lineaDetalle.hexOp = Linea.decToHex((int) op.charAt(1), 1);
+                                    }
+                                    else if(op.matches("[0-9]+")) {
+                                        lineaDetalle.hexOp = Linea.decToHex(Integer.parseInt(op), 1);
+                                    }
+                                    else{
+                                        throw new Error("002 VARIABLE INEXISTENTE");    
+                                    }
+                                }
+                                else{
+                                    // Indexado
+                                    if (lineaDetalle.operando.isEmpty())
+                                        throw new Error("005 INSTRUCCIÓN CARECE DE OPERANDOS");
+                                    if((lineaDetalle.operando.toLowerCase().contains(",x") || lineaDetalle.operando.toLowerCase().contains(",y"))
+                                    && (instruccion.codigos.containsKey(Instruccion.TipoInstruccion.INDX) || instruccion.codigos.containsKey(Instruccion.TipoInstruccion.INDY))){
+                                        String op = lineaDetalle.operando.toLowerCase();
+                                        //System.out.println(op);
+                                        //System.out.println(lineaDetalle.lineaOriginal);
+                                        //System.out.println(variables.toString());
+                                        boolean indX = lineaDetalle.operando.contains(",x");
+                                        int posicionIndexado = indX ? lineaDetalle.operando.indexOf(",x") : lineaDetalle.operando.indexOf(",y");
+                                        op = op.substring(0, posicionIndexado);
+                                        if (op.isEmpty())
+                                            throw new Error("005 INSTRUCCIÓN CARECE DE OPERANDOS");
+                                        if (variables.containsKey(op)) {
+                                            op = variables.get(op);
+                                        }
+                                        lineaDetalle.hexInst = instruccion.codigos.get(indX ? Instruccion.TipoInstruccion.INDX : Instruccion.TipoInstruccion.INDY).codigo;
+                                        if(op.startsWith("$")){
+                                            lineaDetalle.hexOp = op.substring(1);    
+                                        }
+                                        else if(op.startsWith("'") ){
+                                            lineaDetalle.hexOp = Linea.decToHex((int) op.charAt(1), 1);
+                                        }
+                                        else if(op.matches("[0-9]+")) {
+                                            lineaDetalle.hexOp = Linea.decToHex(Integer.parseInt(op), 1);
+                                        }
+                                        else {
+                                            throw new Error("002 VARIABLE INEXISTENTE");
+                                        }
+                                        if (instruccionesEspeciales.contains(instruccion.nmemonico)) {
+                                            String aux = lineaDetalle.operando.toLowerCase().substring(posicionIndexado + 2).trim();
+                                            if (!aux.substring(0,2).contains(",#"))
+                                                throw new Error("005 INSTRUCCIÓN CARECE DE OPERANDOS");
+                                            int posEspacio = aux.indexOf(" ");
+                                            if (posEspacio == -1)
+                                                posEspacio = aux.length();
+                                            String op2 = aux.substring(2, posEspacio).trim();
+                                            String etiqueta = aux.substring(posEspacio).trim();
+                                            lineaDetalle.hexInst = instruccion.codigos.get(indX ? Instruccion.TipoInstruccion.INDX : Instruccion.TipoInstruccion.INDY).codigo;
+                                            if(op2.startsWith("$")){
+                                                lineaDetalle.hexOp += op2.substring(1);    
+                                            }
+                                            else if(op2.startsWith("'") ){
+                                                lineaDetalle.hexOp += Linea.decToHex((int) op2.charAt(1), 1);
+                                            }
+                                            else if(op2.matches("[0-9]+")) {
+                                                lineaDetalle.hexOp += Linea.decToHex(Integer.parseInt(op2), 1);
+                                            }
+                                            else {
+                                                throw new Error("002 VARIABLE INEXISTENTE");
+                                            }
+                                            if (etiqueta.isEmpty()) {
+                                                // Sin r
+                                                if (!mnemonico.equals("bset") && !mnemonico.equals("bclr"))
+                                                    throw new Error("010 MUCHOS OPERANDOS");
+                                            }
+                                            else {
+                                                // Con r
+                                                if (mnemonico.equals("bset") || mnemonico.equals("bclr"))
+                                                    throw new Error("005 INSTRUCCIÓN CARECE DE OPERANDOS");
+                                                if (!etiquetas.containsKey(etiqueta))
+                                                    throw new Error("003 ETIQUETA INEXISTENTE");
+                                                hacerSegundaVuelta = true;
+                                                lineaDetalle.pendiente = Linea.Tarea.CALC_SALTO;
+                                                lineaDetalle.etiqueta = etiqueta;
+                                            }
+                                        }
+                                    }
+                                    else{
+                                        // Directo o extendido
+                                        String op = lineaDetalle.operando, especial = "";
+                                        int posComa = op.indexOf(",#");
+                                        boolean esEspecial = posComa != -1;
+                                        if (esEspecial) {
+                                            especial = op.substring(op.indexOf(",#") + 2).trim();
+                                            op = op.substring(0, op.indexOf(",")).trim();
+                                        }
+                                        if (op.isEmpty())
+                                            throw new Error("005 INSTRUCCIÓN CARECE DE OPERANDOS");
+                                        if (variables.containsKey(op)) {
+                                            op = variables.get(op);
+                                        }
+                                        int opNum;
+                                        if(op.startsWith("$")){
+                                            op = op.substring(1);
+                                            opNum = Linea.hexToDec(op);
+                                        }
+                                        else if(op.startsWith("'")){
+                                            opNum = (int) op.charAt(1);
+                                        }
+                                        else if(op.matches("[0-9]+")) {
+                                            opNum = Integer.parseInt(op);
+                                        }
+                                        else {
+                                            throw new Error("002 VARIABLE INEXISTENTE");
+                                        }
+                                        if(opNum < 256){
+                                            if(instruccion.codigos.containsKey(Instruccion.TipoInstruccion.DIR)){
+                                                lineaDetalle.hexInst = instruccion.codigos.get(Instruccion.TipoInstruccion.DIR).codigo;
+                                                lineaDetalle.hexOp += Linea.decToHex(opNum, 1);
+                                                if (esEspecial) {
+                                                    if (!instruccionesEspeciales.contains(instruccion.nmemonico))
+                                                        throw new Error("005 INSTRUCCIÓN CARECE DE OPERANDOS");
+                                                    String aux = lineaDetalle.operando.toLowerCase().substring(posComa).trim();
+                                                    if (!aux.substring(0,2).contains(",#"))
+                                                        throw new Error("005 INSTRUCCIÓN CARECE DE OPERANDOS");
+                                                    System.out.println(aux);
+                                                    System.out.println(lineaSinComentarios);
+                                                    int posEspacio = aux.indexOf(" ");
+                                                    if (posEspacio == -1)
+                                                        posEspacio = aux.length();
+                                                    String op2 = aux.substring(2, posEspacio).trim();
+                                                    String etiqueta = aux.substring(posEspacio).trim();
+                                                    System.out.println("Etiqueta:"+etiqueta);
+                                                    lineaDetalle.hexInst = instruccion.codigos.get(Instruccion.TipoInstruccion.DIR).codigo;
+                                                    if(op2.startsWith("$")){
+                                                        lineaDetalle.hexOp += op2.substring(1);    
+                                                    }
+                                                    else if(op2.startsWith("'") ){
+                                                        lineaDetalle.hexOp += Linea.decToHex((int) op2.charAt(1), 1);
+                                                    }
+                                                    else if(op2.matches("[0-9]+")) {
+                                                        lineaDetalle.hexOp += Linea.decToHex(Integer.parseInt(op2), 1);
+                                                    }
+                                                    else {
+                                                        throw new Error("002 VARIABLE INEXISTENTE");
+                                                    }
+                                                    System.out.println(mnemonico);
+                                                    System.out.println(mnemonico.length());
+                                                    if (etiqueta.isEmpty()) {
+                                                        // Sin r
+                                                        if (!mnemonico.equals("bset") && !mnemonico.equals("bclr"))
+                                                            throw new Error("010 MUCHOS OPERANDOS");
+                                                    }
+                                                    else {
+                                                        // Con r
+                                                        if (mnemonico.equals("bset") || mnemonico.equals("bclr"))
+                                                            throw new Error("005 INSTRUCCIÓN CARECE DE OPERANDOS");
+                                                        if (!etiquetas.containsKey(etiqueta))
+                                                            throw new Error("003 ETIQUETA INEXISTENTE");
+                                                        hacerSegundaVuelta = true;
+                                                        lineaDetalle.pendiente = Linea.Tarea.CALC_SALTO;
+                                                        lineaDetalle.etiqueta = etiqueta;
+                                                    }
+                                                }
+                                            }
+                                            else{
+                                                throw new Error("007 MAGNITUD DE OPERADO ERRÓNEA");
+                                            }
+                                        }
+                                        else {
+                                            if(instruccion.codigos.containsKey(Instruccion.TipoInstruccion.EXT)){
+                                                lineaDetalle.hexInst = instruccion.codigos.get(Instruccion.TipoInstruccion.EXT).codigo;
+                                                lineaDetalle.hexOp += Linea.decToHex(opNum, 2);
+                                            }
+                                            else{
+                                                throw new Error("007 MAGNITUD DE OPERADO ERRÓNEA");
+                                            }
+                                        }
+                                    }
+                                }
                             }
-                            if (espacioUltimaParte) {
-                                String ultimo = operandosLista.removeLast();
-                                String[] partesUltimo = ultimo.split(" ");
-                                operandosLista.add(partesUltimo[0].trim());
-                                operandosLista.add(partesUltimo[1].trim());
-                            }
-                            int numOperandos = operandosLista.size();
-                            // TODO: Saber a qué modo se refiere con los operandos recibidos
                         }
                     }
-                    lineaDetalle.direccion = direccionActualH++;
+                    if(aumentarDireccion){
+                        lineaDetalle.direccion = direccionActualH;
+                        direccionActualH = direccionActualH + lineaDetalle.getHexadecimal().length()/2;
+                    }
+                    else{
+                        aumentarDireccion = true;
+                    }
                     lineas.add(lineaDetalle);
                 }
-                // TODO: hacer segunda vuelta
-                if(!finDelPrograma){
-                    throw new Error("No se econcotró el fin de programa.s");
-                }
+                lineaDetalle.hexInst = lineaDetalle.hexInst.toUpperCase();
+                lineaDetalle.hexOp = lineaDetalle.hexOp.toUpperCase();
             } while (lector.hasNextLine() && !finDelPrograma);
-            lector.close();
-            for (Linea linea : lineas) {
-                System.out.println(linea);
+            //System.out.println(lineas.size());
+            // Segunda vuelta
+            if (hacerSegundaVuelta) {
+                for (int i = 0; i < lineas.size(); i++){
+                    Linea lineaActual = lineas.get(i);
+                    if (lineaActual.pendiente == null)
+                        continue;
+                    if (lineaActual.pendiente == Linea.Tarea.CALC_SALTO) {
+                        if(!etiquetas.containsKey(lineaActual.etiqueta))
+                            throw new Error("003 ETIQUETA INEXISTENTE");
+                        int saltos = etiquetas.get(lineaActual.etiqueta) - lineaActual.direccion - 2;
+                        System.out.println(lineaActual.direccion);
+                        System.out.println(etiquetas.get(lineaActual.etiqueta));
+                        System.out.println("Saltos:"+saltos);
+                        if (saltos < 128 && saltos > -129){
+                            lineaActual.hexOp += Linea.decToHex(saltos, 1);
+                        }
+                        else{
+                            throw new Error("008 SALTO RELATIVO MUY LEJANO");
+                        }
+                    }
+                }
             }
-            System.out.println("ETQIEUTAS:" + etiquetas.toString());
+            if(!finDelPrograma){
+                throw new Error("010 NO SE ENCUENTRA END");
+            }
+            lector.close();
+
+            for (Linea linea : lineas) {
+                //System.out.println(linea);
+            }
+
+            crearArchivoListado(rutaArchivo, lineas);
+            crearArchivoCodigoObjeto(rutaArchivo, lineas);
+            crearArchivoListadoHTML(rutaArchivo, lineas);
+
+            //System.out.println("ETQIEUTAS:" + etiquetas.toString());
           } catch (FileNotFoundException e) {
             e.printStackTrace();
           }
     }
 
+    public static void crearArchivoListado (String rutaArchivo, List<Linea> lineas) {
+        try {
+            int indexComienzoNombre = rutaArchivo.lastIndexOf("\\");
+            if (indexComienzoNombre == -1)
+                indexComienzoNombre = 0;
+            String carpeta = rutaArchivo.substring(0, indexComienzoNombre + 1);
+            String nombreArchivo = rutaArchivo.substring(indexComienzoNombre + 1, rutaArchivo.lastIndexOf("."));
+            FileWriter archivoListado = new FileWriter(carpeta + nombreArchivo + ".lst");
+            if (lineas.size() == 0) {
+                archivoListado.close();
+                return;
+            }
+            for (Linea linea : lineas)
+                archivoListado.write(linea.toString() + "\n");
+            archivoListado.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void crearArchivoListadoHTML (String rutaArchivo, List<Linea> lineas) {
+        try {
+            int indexComienzoNombre = rutaArchivo.lastIndexOf("\\");
+            if (indexComienzoNombre == -1)
+                indexComienzoNombre = 0;
+            String carpeta = rutaArchivo.substring(0, indexComienzoNombre + 1);
+            String nombreArchivo = rutaArchivo.substring(indexComienzoNombre + 1, rutaArchivo.lastIndexOf("."));
+            FileWriter archivoListado = new FileWriter(carpeta + nombreArchivo + ".lst.html");
+            if (lineas.size() == 0) {
+                archivoListado.close();
+                return;
+            }
+            archivoListado.write("<html\n<head><title>Listado con colores (Punto extra)</title></head>\n");
+            archivoListado.write("<body>\n");
+            for (Linea linea : lineas)
+                archivoListado.write(linea.toHTML() + "<br/>");
+            archivoListado.write("</body>\n</html>");
+            archivoListado.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void crearArchivoCodigoObjeto (String rutaArchivo, List<Linea> lineas) {
+        try {
+            int indexComienzoNombre = rutaArchivo.lastIndexOf("\\");
+            if (indexComienzoNombre == -1)
+                indexComienzoNombre = 0;
+            String carpeta = rutaArchivo.substring(0, indexComienzoNombre + 1);
+            String nombreArchivo = rutaArchivo.substring(indexComienzoNombre + 1, rutaArchivo.lastIndexOf("."));
+            FileWriter archivoListado = new FileWriter(carpeta + nombreArchivo + ".s19");
+            String hexadecimalTotal = "", cadena = "";
+            if (lineas.size() == 0) {
+                archivoListado.close();
+                return;
+            }
+            int direccion = -1;
+            for (Linea linea : lineas) {
+                if (direccion == -1 && linea.direccion != -1)
+                    direccion = linea.direccion;
+                hexadecimalTotal += linea.getHexadecimal();
+            }
+            //System.out.println(hexadecimalTotal);
+            //System.out.println(hexadecimalTotal.length());
+            for (int i = 0; i < hexadecimalTotal.length(); i += 32) {
+                cadena = "<" + Linea.decToHex(direccion, 2) + ">";
+                for (int j = i; j < i + 32 && j < hexadecimalTotal.length() - 1; j += 2, direccion++)
+                    cadena += " " + hexadecimalTotal.charAt(j) + hexadecimalTotal.charAt(j + 1);
+                //System.out.println(cadena);
+                archivoListado.write(cadena + "\n");
+                cadena = "";
+            }
+            archivoListado.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     public static void main(String[] args) {
         cargarSetInstrucciones();
+        Scanner sc = new Scanner(System.in);
+        /*
+        String archivoACompilar = sc.nextLine();
+        compilarArchivo(archivoACompilar);
+         */
         compilarArchivo("prueba.asc");
     }
 }

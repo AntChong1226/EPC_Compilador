@@ -1,0 +1,80 @@
+1:					:* Soy un comentario
+2:					:    org 8000 *Otro comentario
+3:					:
+4:					:*Variables
+5:					:pruebita equ $45
+6:					:
+7:					:*Inherente
+8: 8000 (01)		:    NOP
+9: 8001 (08)		:    INX
+10: 8002 (09)		:    DEX
+11: 8003 (1808)		:    INy
+12: 8005 (1809)		:    DEY
+13:					:
+14:					:*Inmediato
+15: 8007 (8645)		:    ldaa #$45
+16: 8009 (866B)		:    ldaa #'k
+17: 800b (860F)		:    ldaa #15
+18:					:
+19:					:*Indexado
+20: 800d (A645)		:    LDAA $45,X
+21: 800f (A645)		:    LDAA pruebita,X
+22: 8011 (18E667)	:    LDAB $67,Y
+23: 8014 (EC17)		:    LDD $17,X
+24: 8016 (CDEEF1)	:    LDX $F1,Y
+25: 8019 (18AB07)	:    ADDA $07,Y
+26: 801c (B4F0)		:    ANDA $F0,X
+27: 801e (18EEAB)	:    LDY $AB,Y
+28:					:
+29:					:*Directo
+30: 8021 (9645)		:    LDAA $45
+31: 8023 (D60B)		:    LDAB 11
+32: 8025 (DC17)		:    LDD $17
+33: 8027 (DE0F)		:    LDX 15
+34: 8029 (9B7C)		:    ADDA $7C
+35: 802b (94F0)		:    ANDA $F0
+36: 802d (18DEAB)	:    LDY $AB
+37:					:
+38:					:*Extendido
+39: 8030 (B6457C)	:    LDAA $457C
+40: 8033 (F605FB)	:    LDAB 1531
+41: 8036 (FC1789)	:    LDD $1789
+42: 8039 (FEFDE8)	:    LDX 65000
+43: 803c (BB07CB)	:    ADDA $7CB
+44: 803f (B4F0B1)	:    ANDA $F0B1
+45: 8042 (18FEABCD)	:    LDY $ABCD
+46:					:
+47:					:ciclo
+48: 8046 (01)		:    NOP
+49: 8047 (01)		:    NOP
+50: 8048 (01)		:    NOP
+51: 8049 (01)		:    NOP
+52: 804a (01)		:    NOP
+53: 804b (09)		:    dex
+54:					:*Relativo
+55: 804c (26F8)		:    bne ciclo
+56: 804d (2604)		:    bne MiEtiqueta
+57: 804e (01)		:    NOP
+58: 804f (01)		:    NOP
+59: 8050 (01)		:    NOP
+60: 8051 (01)		:    NOP
+61: 8052 (01)		:    NOP
+62:					:MiEtiqueta
+63:					:
+64:					:*Especiales
+65: 8053 (144C50)	:    bset $4C,#80
+66: 8056 (124C50EE)	:    brset $4C,#80 ciclo
+67: 8059 (1C4C50)	:    bset $4C,x,#80
+68: 805c (181C4C50)	:    bset $4C,y,#80
+69: 8060 (1E4C50E4)	:    brset $4C,x,#80 ciclo
+70: 8063 (181E4C50E1)	:    brset $4C,y,#80 ciclo
+71:					:
+72:					:    
+73: 8067 (154C50)	:    bclr $4C,#80
+74: 806a (134C50DA)	:    brclr $4C,#80 ciclo
+75: 806d (1D4C50)	:    bclr $4C,x,#80
+76: 8070 (181D4C50)	:    bclr $4C,y,#80
+77: 8074 (1F4C50D0)	:    brclr $4C,x,#80 ciclo
+78: 8077 (181F4C50CD)	:    brclr $4C,y,#80 ciclo
+79:					:
+80:					:    END

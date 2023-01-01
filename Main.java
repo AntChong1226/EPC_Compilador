@@ -8,9 +8,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Scanner;
-import java.util.regex.Pattern;
-
-import org.w3c.dom.html.HTMLTableRowElement;
 
 public class Main {
     private static LinkedHashMap<String, Instruccion> setInstrucciones = new LinkedHashMap<>();
@@ -100,7 +97,6 @@ public class Main {
                 lineaDetalle = new Linea();
                 lineaDetalle.numLinea = ++contador;
                 lineaDetalle.lineaOriginal = lector.nextLine();
-                //System.out.println("START" + lineaDetalle.lineaOriginal + "END");
                 auxPosAsterisco = lineaDetalle.lineaOriginal.indexOf("*");
                 lineaSinComentarios = lineaDetalle.lineaOriginal.toLowerCase();
                 lineaSinComentarios = auxPosAsterisco != -1 ? lineaSinComentarios.substring(0, auxPosAsterisco) : lineaSinComentarios;
@@ -123,14 +119,13 @@ public class Main {
                         hacerSegundaVuelta = true;
                     }
                     else {
-                        throw new Error("009 INSTRUCCIÓN CARECE DE ALMENOS UN ESPACIO RELATIVO AL MARGEN");
+                        lanzarError(contador, lineaDetalle.lineaOriginal, "009 INSTRUCCIÓN CARECE DE ALMENOS UN ESPACIO RELATIVO AL MARGEN");
                     }
                     lineas.add(lineaDetalle);
                     continue;
                 }
                 else {
                     lineaSinComentarios = lineaSinComentarios.trim();
-                    //System.out.println("SINCOMENT_START" + lineaSinComentarios + "END");
                     int primerEspacio = lineaSinComentarios.indexOf(" ");
                     if (primerEspacio == -1) {
                         primerEspacio = lineaSinComentarios.length();
@@ -141,8 +136,6 @@ public class Main {
                     else
                         lineaDetalle.operando = lineaSinComentarios.substring(primerEspacio + 1).trim();
                     if (esDirectiva(mnemonico)) {
-                        //System.out.println("Directiva:" + mnemonico);
-                        // TODO: Manejar cuando sea directiva
                         switch (mnemonico) {
                             case "org":
                                 direccionActualH = Integer.parseInt(lineaDetalle.operando, 16);
@@ -160,13 +153,11 @@ public class Main {
                         }
                     }
                     else if (!setInstrucciones.containsKey(mnemonico)) {
-                        throw new Error("004 MNEMÓNICO INEXISTENTE");
+                        lanzarError(contador, lineaDetalle.lineaOriginal, "004 MNEMÓNICO INEXISTENTE");
                     }
                     else {
                         // Es una instrucción
-                        //System.out.println("Mnemonico:" + mnemonico);
                         Instruccion instruccion = setInstrucciones.get(mnemonico);
-                        //System.out.println("TIPOS:" + instruccion.codigos.toString());
                         // Rel
                         if(instruccion.codigos.containsKey(Instruccion.TipoInstruccion.REL)){
                             hacerSegundaVuelta = true;
@@ -181,13 +172,15 @@ public class Main {
                                     lineaDetalle.hexInst = instruccion.codigos.get(Instruccion.TipoInstruccion.INH).codigo;
                                 }
                                 else {
-                                    throw new Error("006 INSTRUCCIÓN NO LLEVA OPERANDO(S)");
+                                    lanzarError(contador, lineaDetalle.lineaOriginal, "006 INSTRUCCIÓN NO LLEVA OPERANDO(S)");
                                 }
                             }
                             else{
                                 // Inmediato
-                                if (lineaDetalle.operando.isEmpty())
-                                    throw new Error("005 INSTRUCCIÓN CARECE DE OPERANDOS");
+                                if (lineaDetalle.operando.isEmpty()) {
+                                    lanzarError(contador, lineaDetalle.lineaOriginal, "005 INSTRUCCIÓN CARECE DE OPERANDOS");
+
+                                }
                                 if((lineaDetalle.operando.substring(0,1).contains("#"))
                                     && instruccion.codigos.containsKey(Instruccion.TipoInstruccion.INM)){
                                     String op = lineaDetalle.operando.substring(1);
@@ -205,24 +198,21 @@ public class Main {
                                         lineaDetalle.hexOp = Linea.decToHex(Integer.parseInt(op), 1);
                                     }
                                     else{
-                                        throw new Error("002 VARIABLE INEXISTENTE");    
+                                        lanzarError(contador, lineaDetalle.lineaOriginal, "001 CONSTANTE INEXISTENTE");    
                                     }
                                 }
                                 else{
                                     // Indexado
                                     if (lineaDetalle.operando.isEmpty())
-                                        throw new Error("005 INSTRUCCIÓN CARECE DE OPERANDOS");
+                                        lanzarError(contador, lineaDetalle.lineaOriginal, "005 INSTRUCCIÓN CARECE DE OPERANDOS");
                                     if((lineaDetalle.operando.toLowerCase().contains(",x") || lineaDetalle.operando.toLowerCase().contains(",y"))
                                     && (instruccion.codigos.containsKey(Instruccion.TipoInstruccion.INDX) || instruccion.codigos.containsKey(Instruccion.TipoInstruccion.INDY))){
                                         String op = lineaDetalle.operando.toLowerCase();
-                                        //System.out.println(op);
-                                        //System.out.println(lineaDetalle.lineaOriginal);
-                                        //System.out.println(variables.toString());
                                         boolean indX = lineaDetalle.operando.contains(",x");
                                         int posicionIndexado = indX ? lineaDetalle.operando.indexOf(",x") : lineaDetalle.operando.indexOf(",y");
                                         op = op.substring(0, posicionIndexado);
                                         if (op.isEmpty())
-                                            throw new Error("005 INSTRUCCIÓN CARECE DE OPERANDOS");
+                                            lanzarError(contador, lineaDetalle.lineaOriginal, "005 INSTRUCCIÓN CARECE DE OPERANDOS");
                                         if (variables.containsKey(op)) {
                                             op = variables.get(op);
                                         }
@@ -237,12 +227,13 @@ public class Main {
                                             lineaDetalle.hexOp = Linea.decToHex(Integer.parseInt(op), 1);
                                         }
                                         else {
-                                            throw new Error("002 VARIABLE INEXISTENTE");
+                                            lanzarError(contador, lineaDetalle.lineaOriginal, "002 VARIABLE INEXISTENTE");
                                         }
+                                        /// Excepciones: bset, bclr, brset, brclr
                                         if (instruccionesEspeciales.contains(instruccion.nmemonico)) {
                                             String aux = lineaDetalle.operando.toLowerCase().substring(posicionIndexado + 2).trim();
                                             if (!aux.substring(0,2).contains(",#"))
-                                                throw new Error("005 INSTRUCCIÓN CARECE DE OPERANDOS");
+                                                lanzarError(contador, lineaDetalle.lineaOriginal, "005 INSTRUCCIÓN CARECE DE OPERANDOS");
                                             int posEspacio = aux.indexOf(" ");
                                             if (posEspacio == -1)
                                                 posEspacio = aux.length();
@@ -259,19 +250,19 @@ public class Main {
                                                 lineaDetalle.hexOp += Linea.decToHex(Integer.parseInt(op2), 1);
                                             }
                                             else {
-                                                throw new Error("002 VARIABLE INEXISTENTE");
+                                                lanzarError(contador, lineaDetalle.lineaOriginal, "001 CONSTANTE INEXISTENTE");
                                             }
                                             if (etiqueta.isEmpty()) {
                                                 // Sin r
                                                 if (!mnemonico.equals("bset") && !mnemonico.equals("bclr"))
-                                                    throw new Error("010 MUCHOS OPERANDOS");
+                                                    lanzarError(contador, lineaDetalle.lineaOriginal, "010 MUCHOS OPERANDOS");
                                             }
                                             else {
                                                 // Con r
                                                 if (mnemonico.equals("bset") || mnemonico.equals("bclr"))
-                                                    throw new Error("005 INSTRUCCIÓN CARECE DE OPERANDOS");
+                                                    lanzarError(contador, lineaDetalle.lineaOriginal, "005 INSTRUCCIÓN CARECE DE OPERANDOS");
                                                 if (!etiquetas.containsKey(etiqueta))
-                                                    throw new Error("003 ETIQUETA INEXISTENTE");
+                                                    lanzarError(contador, lineaDetalle.lineaOriginal, "003 ETIQUETA INEXISTENTE");
                                                 hacerSegundaVuelta = true;
                                                 lineaDetalle.pendiente = Linea.Tarea.CALC_SALTO;
                                                 lineaDetalle.etiqueta = etiqueta;
@@ -288,11 +279,11 @@ public class Main {
                                             op = op.substring(0, op.indexOf(",")).trim();
                                         }
                                         if (op.isEmpty())
-                                            throw new Error("005 INSTRUCCIÓN CARECE DE OPERANDOS");
+                                            lanzarError(contador, lineaDetalle.lineaOriginal, "005 INSTRUCCIÓN CARECE DE OPERANDOS");
                                         if (variables.containsKey(op)) {
                                             op = variables.get(op);
                                         }
-                                        int opNum;
+                                        int opNum = -1;
                                         if(op.startsWith("$")){
                                             op = op.substring(1);
                                             opNum = Linea.hexToDec(op);
@@ -304,26 +295,26 @@ public class Main {
                                             opNum = Integer.parseInt(op);
                                         }
                                         else {
-                                            throw new Error("002 VARIABLE INEXISTENTE");
+                                            lanzarError(contador, lineaDetalle.lineaOriginal, "002 VARIABLE INEXISTENTE");
                                         }
-                                        if(opNum < 256){
+                                        if(opNum >= 0 && opNum < 256){
                                             if(instruccion.codigos.containsKey(Instruccion.TipoInstruccion.DIR)){
                                                 lineaDetalle.hexInst = instruccion.codigos.get(Instruccion.TipoInstruccion.DIR).codigo;
                                                 lineaDetalle.hexOp += Linea.decToHex(opNum, 1);
+                                                /// Excepciones: bset, bclr, brset, brclr
                                                 if (esEspecial) {
-                                                    if (!instruccionesEspeciales.contains(instruccion.nmemonico))
-                                                        throw new Error("005 INSTRUCCIÓN CARECE DE OPERANDOS");
+                                                    if (!instruccionesEspeciales.contains(instruccion.nmemonico)) {
+                                                        lanzarError(contador, lineaDetalle.lineaOriginal, "005 INSTRUCCIÓN CARECE DE OPERANDOS");
+                                                    }
                                                     String aux = lineaDetalle.operando.toLowerCase().substring(posComa).trim();
-                                                    if (!aux.substring(0,2).contains(",#"))
-                                                        throw new Error("005 INSTRUCCIÓN CARECE DE OPERANDOS");
-                                                    System.out.println(aux);
-                                                    System.out.println(lineaSinComentarios);
+                                                    if (!aux.substring(0,2).contains(",#")) {
+                                                        lanzarError(contador, lineaDetalle.lineaOriginal, "005 INSTRUCCIÓN CARECE DE OPERANDOS");
+                                                    }
                                                     int posEspacio = aux.indexOf(" ");
                                                     if (posEspacio == -1)
                                                         posEspacio = aux.length();
                                                     String op2 = aux.substring(2, posEspacio).trim();
                                                     String etiqueta = aux.substring(posEspacio).trim();
-                                                    System.out.println("Etiqueta:"+etiqueta);
                                                     lineaDetalle.hexInst = instruccion.codigos.get(Instruccion.TipoInstruccion.DIR).codigo;
                                                     if(op2.startsWith("$")){
                                                         lineaDetalle.hexOp += op2.substring(1);    
@@ -335,21 +326,22 @@ public class Main {
                                                         lineaDetalle.hexOp += Linea.decToHex(Integer.parseInt(op2), 1);
                                                     }
                                                     else {
-                                                        throw new Error("002 VARIABLE INEXISTENTE");
+                                                        lanzarError(contador, lineaDetalle.lineaOriginal, "002 VARIABLE INEXISTENTE");
                                                     }
-                                                    System.out.println(mnemonico);
-                                                    System.out.println(mnemonico.length());
                                                     if (etiqueta.isEmpty()) {
                                                         // Sin r
-                                                        if (!mnemonico.equals("bset") && !mnemonico.equals("bclr"))
-                                                            throw new Error("010 MUCHOS OPERANDOS");
+                                                        if (!mnemonico.equals("bset") && !mnemonico.equals("bclr")) {
+                                                            lanzarError(contador, lineaDetalle.lineaOriginal, "010 MUCHOS OPERANDOS");
+                                                        }
                                                     }
                                                     else {
                                                         // Con r
-                                                        if (mnemonico.equals("bset") || mnemonico.equals("bclr"))
-                                                            throw new Error("005 INSTRUCCIÓN CARECE DE OPERANDOS");
-                                                        if (!etiquetas.containsKey(etiqueta))
-                                                            throw new Error("003 ETIQUETA INEXISTENTE");
+                                                        if (mnemonico.equals("bset") || mnemonico.equals("bclr")) {
+                                                            lanzarError(contador, lineaDetalle.lineaOriginal, "005 INSTRUCCIÓN CARECE DE OPERANDOS");
+                                                        }
+                                                        if (!etiquetas.containsKey(etiqueta)) {
+                                                            lanzarError(contador, lineaDetalle.lineaOriginal, "003 ETIQUETA INEXISTENTE");
+                                                        }
                                                         hacerSegundaVuelta = true;
                                                         lineaDetalle.pendiente = Linea.Tarea.CALC_SALTO;
                                                         lineaDetalle.etiqueta = etiqueta;
@@ -357,16 +349,16 @@ public class Main {
                                                 }
                                             }
                                             else{
-                                                throw new Error("007 MAGNITUD DE OPERADO ERRÓNEA");
+                                                lanzarError(contador, lineaDetalle.lineaOriginal, "007 MAGNITUD DE OPERADO ERRÓNEA");
                                             }
                                         }
                                         else {
-                                            if(instruccion.codigos.containsKey(Instruccion.TipoInstruccion.EXT)){
+                                            if(instruccion.codigos.containsKey(Instruccion.TipoInstruccion.EXT) && opNum >= 256 && opNum < 65536){
                                                 lineaDetalle.hexInst = instruccion.codigos.get(Instruccion.TipoInstruccion.EXT).codigo;
                                                 lineaDetalle.hexOp += Linea.decToHex(opNum, 2);
                                             }
                                             else{
-                                                throw new Error("007 MAGNITUD DE OPERADO ERRÓNEA");
+                                                lanzarError(contador, lineaDetalle.lineaOriginal, "007 MAGNITUD DE OPERADO ERRÓNEA");
                                             }
                                         }
                                     }
@@ -386,46 +378,44 @@ public class Main {
                 lineaDetalle.hexInst = lineaDetalle.hexInst.toUpperCase();
                 lineaDetalle.hexOp = lineaDetalle.hexOp.toUpperCase();
             } while (lector.hasNextLine() && !finDelPrograma);
-            //System.out.println(lineas.size());
-            // Segunda vuelta
             if (hacerSegundaVuelta) {
                 for (int i = 0; i < lineas.size(); i++){
                     Linea lineaActual = lineas.get(i);
                     if (lineaActual.pendiente == null)
                         continue;
                     if (lineaActual.pendiente == Linea.Tarea.CALC_SALTO) {
-                        if(!etiquetas.containsKey(lineaActual.etiqueta))
-                            throw new Error("003 ETIQUETA INEXISTENTE");
+                        if(!etiquetas.containsKey(lineaActual.etiqueta)) {
+                            lanzarError(contador, lineaDetalle.lineaOriginal, "003 ETIQUETA INEXISTENTE");
+                        }
                         int saltos = etiquetas.get(lineaActual.etiqueta) - lineaActual.direccion - 2;
-                        System.out.println(lineaActual.direccion);
-                        System.out.println(etiquetas.get(lineaActual.etiqueta));
-                        System.out.println("Saltos:"+saltos);
                         if (saltos < 128 && saltos > -129){
                             lineaActual.hexOp += Linea.decToHex(saltos, 1);
                         }
                         else{
-                            throw new Error("008 SALTO RELATIVO MUY LEJANO");
+                            lanzarError(contador, lineaDetalle.lineaOriginal, "008 SALTO RELATIVO MUY LEJANO");
                         }
                     }
                 }
             }
             if(!finDelPrograma){
-                throw new Error("010 NO SE ENCUENTRA END");
+                lanzarError(contador, lineaDetalle.lineaOriginal, "010 NO SE ENCUENTRA END");
             }
             lector.close();
-
-            for (Linea linea : lineas) {
-                //System.out.println(linea);
-            }
 
             crearArchivoListado(rutaArchivo, lineas);
             crearArchivoCodigoObjeto(rutaArchivo, lineas);
             crearArchivoListadoHTML(rutaArchivo, lineas);
-
-            //System.out.println("ETQIEUTAS:" + etiquetas.toString());
+            
+            System.out.println("Programa exitosamente compilado.");
           } catch (FileNotFoundException e) {
             e.printStackTrace();
           }
+    }
+
+    public static void lanzarError(int contador, String lineaOriginal, String mensaje) {
+        System.out.println("Error en línea " + contador + " (" + mensaje + "): \n" + lineaOriginal);
+        System.out.println("Compilación del programa fallida.");
+        System.exit(0);
     }
 
     public static void crearArchivoListado (String rutaArchivo, List<Linea> lineas) {
@@ -490,13 +480,10 @@ public class Main {
                     direccion = linea.direccion;
                 hexadecimalTotal += linea.getHexadecimal();
             }
-            //System.out.println(hexadecimalTotal);
-            //System.out.println(hexadecimalTotal.length());
             for (int i = 0; i < hexadecimalTotal.length(); i += 32) {
                 cadena = "<" + Linea.decToHex(direccion, 2) + ">";
                 for (int j = i; j < i + 32 && j < hexadecimalTotal.length() - 1; j += 2, direccion++)
                     cadena += " " + hexadecimalTotal.charAt(j) + hexadecimalTotal.charAt(j + 1);
-                //System.out.println(cadena);
                 archivoListado.write(cadena + "\n");
                 cadena = "";
             }
@@ -508,11 +495,9 @@ public class Main {
 
     public static void main(String[] args) {
         cargarSetInstrucciones();
+        System.out.print("Ruta o nombre del archivo:");
         Scanner sc = new Scanner(System.in);
-        /*
         String archivoACompilar = sc.nextLine();
         compilarArchivo(archivoACompilar);
-         */
-        compilarArchivo("prueba.asc");
     }
 }
